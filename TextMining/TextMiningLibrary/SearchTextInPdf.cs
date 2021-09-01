@@ -10,19 +10,26 @@ namespace TextMiningLibrary
 {
     public static class SearchTextInPdf
     {
+        private static string SEARCHSDONE_FILE = "SearchsDone.txt";
+        private static long? searchsDone;
+
         public static List<string> Search(string filePath, string logPath, string conditionString)
         {
             var result = new List<string>();
 
-            parseConditions(conditionString, out var orConditions, out var andConditions);
+            parseConditions(conditionString, out var conditions, out var isAndCondition);
             verifyFilePath(filePath);
             verifyLogPath(logPath);
-            verifyConditions(conditionString, orConditions, andConditions);
+            verifyConditions(conditionString, conditions);
 
+            loadSearchsDone();
+            increaseSearchDone();
             using (PdfReader reader = new PdfReader(filePath))
             {
-                using (StreamWriter file = new StreamWriter(logPath + @"\TextMiningLog.log", append: true))
+                using (StreamWriter file = new StreamWriter(logPath + @"\TextMiningHistory.txt", append: true))
                 {
+                    var occurrences = new Dictionary<string, int>();
+
                     var pdfDocument = new PdfDocument(reader);
                     for (int pageNumber = 1; pageNumber <= pdfDocument.GetNumberOfPages(); pageNumber++)
                     {
@@ -30,21 +37,58 @@ namespace TextMiningLibrary
                         var pageText = PdfTextExtractor.GetTextFromPage(page);
                         var lines = pageText.Split('\n');
 
-                        var linesMatchingOr = handleOrCondition(orConditions, lines, pageNumber);
-                        var linesMatchingAnd = handleAndCondition(andConditions, lines, pageNumber);
-                        var linesForSingleCondition = handleSingleCondition(conditionString, orConditions, andConditions, lines, pageNumber);
-
-                        var orLine = "Lines that matched the OR condition";
-                        var andLine = "Lines that matched the AND condition";
-                        var singleLine = "Lines that matched the condition";
-
-                        buildResult(result, linesMatchingOr, linesMatchingAnd, linesForSingleCondition, orLine, andLine, singleLine, pageNumber);
-                        writeLogLines(result, file);
+                        var linesMatchingCondition = handleConditions(conditions, lines, pageNumber);
+                        avaliateResults(linesMatchingCondition, occurrences);
                     }
+
+                    buildResult(isAndCondition, filePath, conditionString, result, occurrences);
+                    writeLogLines(result, file);
                 }
             }
 
             return result;
+        }
+
+        private static void loadSearchsDone()
+        {
+            if (File.Exists(SEARCHSDONE_FILE))
+            {
+                using (StreamReader file = new StreamReader(SEARCHSDONE_FILE))
+                {
+                    var fileData = file.ReadToEnd();
+                    if (long.TryParse(fileData, out var result))
+                        searchsDone = result;
+                }
+            }       
+        }
+
+        private static void increaseSearchDone()
+        {
+            if (searchsDone == null)
+                searchsDone = 0;
+
+            searchsDone++;
+            using (StreamWriter file = new StreamWriter(SEARCHSDONE_FILE))
+            {
+                file.WriteLine(searchsDone);
+            }
+        }
+
+        private static void avaliateResults(Dictionary<string, int> linesMatchingCondition, Dictionary<string, int> occurrences)
+        {
+            if (linesMatchingCondition.Where(el => el.Value > 0).Any())
+            {
+                foreach (var value in linesMatchingCondition)
+                    feedOccurrences(occurrences, value);
+            }
+        }
+
+        private static void feedOccurrences(Dictionary<string, int> occurrences, KeyValuePair<string, int> value)
+        {
+            if (occurrences.ContainsKey(value.Key))
+                occurrences[value.Key] += value.Value;
+            else
+                occurrences[value.Key] = value.Value;
         }
 
         private static void writeLogLines(List<string> result, StreamWriter file)
@@ -53,24 +97,43 @@ namespace TextMiningLibrary
                 file.WriteLine(line);
         }
 
-        private static void runLines(string[] lines, List<string> resultList, string treatedCondition, int pageNumber, params Action<string, int>[] extraActionsPerLine)
+        private static void runLines(string[] lines, Dictionary<string, int> resultList, string treatedCondition, int pageNumber)
         {
+            if (!resultList.ContainsKey(treatedCondition))
+                resultList[treatedCondition] = 0;
+
             for (var lineNumber = 0; lineNumber < lines.Length; lineNumber++)
             {
                 var line = lines[lineNumber];
                 var treatedLine = line.ToLower();
                 if (treatedLine.Contains(treatedCondition))
                 {
-                    feedResult(resultList, lineNumber, line, pageNumber);
-                    foreach (var extraAction in extraActionsPerLine)
-                        extraAction(line, lineNumber);
+                    int count = 0;
+                    var first = treatedLine.IndexOf(treatedCondition);
+                    var last = treatedLine.LastIndexOf(treatedCondition);
+
+                    if (first != last)
+                    {
+                        while (first != last)
+                        {
+                            count++;
+                            var newSearch = treatedLine.Substring(first, last - first);
+                            first = treatedLine.IndexOf(newSearch);
+                            last = treatedLine.LastIndexOf(newSearch);
+
+                        }
+                    }
+                    else
+                        count = 1;
+
+                    resultList[treatedCondition] += count;
                 }
             }
         }
 
-        private static List<string> handleSingleCondition(string conditionString, string[] orConditions, string[] andConditions, string[] lines, int pageNumber)
+        private static Dictionary<string, int> handleSingleCondition(string conditionString, string[] orConditions, string[] andConditions, string[] lines, int pageNumber)
         {
-            var linesForSingleCondition = new List<string>();
+            var linesForSingleCondition = new Dictionary<string, int>();
 
             if (!orConditions.Any() && !andConditions.Any())
             {
@@ -81,82 +144,60 @@ namespace TextMiningLibrary
             return linesForSingleCondition;
         }
 
-        private static List<string> handleAndCondition(string[] andConditions, string[] lines, int pageNumber)
+        private static Dictionary<string, int> handleConditions(string[] conditions, string[] lines, int pageNumber)
         {
-            foreach (var condition in andConditions)
-            {
-                var filteredLines = new List<string>();
-                var treatedCondition = condition.ToLower().Trim();
-                runLines(lines, filteredLines, treatedCondition, pageNumber);
-                lines = filteredLines.ToArray();
-            }
-
-            if (andConditions.Any())
-                return lines.ToList();
-
-            return new List<string>();
-        }
-
-        private static List<string> handleOrCondition(string[] orConditions, string[] lines, int pageNumber)
-        {
-            var linesMatchingOr = new List<string>();
-            foreach (var condition in orConditions)
+            var linesMatchingAnd = new Dictionary<string, int>();
+            foreach (var condition in conditions)
             {
                 var treatedCondition = condition.ToLower().Trim();
-                runLines(lines, linesMatchingOr, treatedCondition, pageNumber);
+                runLines(lines, linesMatchingAnd, treatedCondition, pageNumber);
             }
 
-            return linesMatchingOr;
+            return linesMatchingAnd;
         }
 
-        private static void feedResult(List<string> linesMatching, int lineNumber, string line, int pageNumber)
+        private static void buildResult(bool isAndCondition, string filePath, string conditionString, List<string> result, Dictionary<string, int> values)
         {
-            var result = new StringBuilder();
-            result.Append(line);
-            if (!line.Contains("| Page:") && !line.Contains("| Line:"))
+            var occurencesString = new StringBuilder();
+
+            if (!isAndCondition || (isAndCondition && values.Any() && values.All(el => el.Value > 0)))
             {
-                result.Append(" | Page: ");
-                result.Append(pageNumber);
-                result.Append(" | Line: ");
-                result.Append(lineNumber);
+                foreach (var value in values)
+                {
+                    occurencesString.Append(value.Key);
+                    occurencesString.Append(" ( ");
+                    occurencesString.Append(value.Value);
+                    occurencesString.Append(" ) ");
+                }
             }
-            linesMatching.Add(result.ToString());
-        }
 
-        private static void buildResult(List<string> result, List<string> linesMatchingOr, List<string> linesMatchingAnd, List<string> linesForSingleCondition, string orLine, string andLine, string singleLine, int pageNumber)
-        {
-            appendDataToResult(result, linesMatchingOr, orLine, pageNumber);
-            appendDataToResult(result, linesMatchingAnd, andLine, pageNumber);
-            appendDataToResult(result, linesForSingleCondition, singleLine, pageNumber);
+            result.Add("********************************************");
+            result.Add($"Número da consulta: {searchsDone}");
+            result.Add($"Nome do documento: {Path.GetFileName(filePath)}");
+            result.Add($"String de busca: {conditionString}");
+            result.Add($"Ocorrências: {occurencesString}");
             if (!result.Any())
                 result.Add("Nenhum registro encontrado.");
+            result.Add("********************************************");
         }
 
-        private static void appendDataToResult(List<string> result, List<string> content, string message, int pageNumber)
+        private static void parseConditions(string conditionString, out string[] conditions, out bool isAndCondition)
         {
-            if (content.Any())
-            {
-                if (pageNumber == 1)
-                    result.Add(message);
-
-                result.AddRange(content);
-            }
-        }
-
-        private static void parseConditions(string conditionString, out string[] orConditions, out string[] andConditions)
-        {
-            orConditions = new string[] { };
-            andConditions = new string[] { };
+            conditions = new string[1] { conditionString };
+            isAndCondition = false;
 
             if (conditionString.Contains(" AND "))
-                andConditions = conditionString.Split("AND");
+            {
+                conditions = conditionString.Split("AND");
+                isAndCondition = true;
+            }
             else if (conditionString.Contains(" OR "))
-                orConditions = conditionString.Split("OR");
+                conditions = conditionString.Split("OR");
         }
 
-        private static void verifyConditions(string conditionString, string[] orConditions, string[] andConditions)
+        private static void verifyConditions(string conditionString, string[] conditions)
         {
-            if (!orConditions.Any() && !andConditions.Any() && string.IsNullOrWhiteSpace(conditionString))
+            if (!conditions.Any() && string.IsNullOrWhiteSpace(conditionString))
                 throw new Exception("No conditions found");
         }
 

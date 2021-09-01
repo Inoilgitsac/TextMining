@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TextMiningWPF"
         mc:Ignorable="d"
-        Title="TextMining" Height="470" Width="840">
+        Title="TextMining" Height="500" Width="820">
     <Grid Margin="10,10,10,10">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="50"/>
