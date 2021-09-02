@@ -47,9 +47,16 @@ namespace TextMiningWPF
 
         private void btn_SearchOnDocument(object sender, RoutedEventArgs e)
         {
-            var values = SearchTextInPdf.Search(documentPath.Text, logPath.Text, conditions.Text);
-            foreach (var value in values)
-                findings.Items.Add(value);
+            try
+            {
+                var values = SearchTextInPdf.Search(documentPath.Text, logPath.Text, conditions.Text);
+                foreach (var value in values)
+                    findings.Items.Add(value);
+            }
+            catch (Exception ex)
+            {
+                findings.Items.Add(ex.Message);
+            }
         }
     }
 }

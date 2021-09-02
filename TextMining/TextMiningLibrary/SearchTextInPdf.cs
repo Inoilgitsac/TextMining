@@ -187,7 +187,7 @@ namespace TextMiningLibrary
 
         private static void verifyConditions(string conditionString, string[] conditions)
         {
-            if (!conditions.Any() && string.IsNullOrWhiteSpace(conditionString))
+            if (!conditions.Where(el => !string.IsNullOrWhiteSpace(el)).Any() && string.IsNullOrWhiteSpace(conditionString))
                 throw new Exception("No conditions found");
         }
 
