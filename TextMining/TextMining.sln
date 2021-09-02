@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TextMiningWPF", "TextMining
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TextMiningLibrary", "TextMiningLibrary\TextMiningLibrary.csproj", "{1C70BE21-0CF0-4715-BDE4-E0225B1445C4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextMiningExtensions", "TextMiningExtensions\TextMiningExtensions.csproj", "{AAC6C811-C20E-4977-8A91-190FF323672C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{1C70BE21-0CF0-4715-BDE4-E0225B1445C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1C70BE21-0CF0-4715-BDE4-E0225B1445C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1C70BE21-0CF0-4715-BDE4-E0225B1445C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AAC6C811-C20E-4977-8A91-190FF323672C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AAC6C811-C20E-4977-8A91-190FF323672C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AAC6C811-C20E-4977-8A91-190FF323672C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AAC6C811-C20E-4977-8A91-190FF323672C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

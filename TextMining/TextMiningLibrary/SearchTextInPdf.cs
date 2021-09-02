@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using TextMiningExtensions;
 
 namespace TextMiningLibrary
 {
@@ -105,7 +106,7 @@ namespace TextMiningLibrary
             for (var lineNumber = 0; lineNumber < lines.Length; lineNumber++)
             {
                 var line = lines[lineNumber];
-                var treatedLine = line.ToLower();
+                var treatedLine = line.NormalizeString();
                 if (treatedLine.Contains(treatedCondition))
                 {
                     int count = 0;
@@ -116,12 +117,14 @@ namespace TextMiningLibrary
                     {
                         while (first != last)
                         {
-                            count++;
-                            var newSearch = treatedLine.Substring(first, last - first);
-                            first = treatedLine.IndexOf(newSearch);
-                            last = treatedLine.LastIndexOf(newSearch);
-
+                            count += 2;
+                            var newSearch = treatedLine.Substring(first + treatedCondition.Length, last - first - treatedCondition.Length);
+                            first = newSearch.IndexOf(treatedCondition);
+                            last = newSearch.LastIndexOf(treatedCondition);
                         }
+
+                        if (first > -1 || last > -1)
+                            count++;
                     }
                     else
                         count = 1;
@@ -131,25 +134,12 @@ namespace TextMiningLibrary
             }
         }
 
-        private static Dictionary<string, int> handleSingleCondition(string conditionString, string[] orConditions, string[] andConditions, string[] lines, int pageNumber)
-        {
-            var linesForSingleCondition = new Dictionary<string, int>();
-
-            if (!orConditions.Any() && !andConditions.Any())
-            {
-                var treatedCondition = conditionString.ToLower().Trim();
-                runLines(lines, linesForSingleCondition, treatedCondition, pageNumber);
-            }
-
-            return linesForSingleCondition;
-        }
-
         private static Dictionary<string, int> handleConditions(string[] conditions, string[] lines, int pageNumber)
         {
             var linesMatchingAnd = new Dictionary<string, int>();
             foreach (var condition in conditions)
             {
-                var treatedCondition = condition.ToLower().Trim();
+                var treatedCondition = condition.NormalizeString();
                 runLines(lines, linesMatchingAnd, treatedCondition, pageNumber);
             }
 
